@@ -1,0 +1,11 @@
+{
+    "folders": [
+        {
+            "path": "."
+        }
+    ],
+    "settings": {
+        "cortex-debug.variableUseNaturalFormat": true
+    },
+    "extensions": {}
+}
