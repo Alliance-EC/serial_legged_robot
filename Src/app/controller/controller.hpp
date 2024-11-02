@@ -14,8 +14,7 @@
 #include <limits>
 
 double watch_data_c[5];
-double over;
-double reverse =1;
+double over[2]={};
 namespace app::controller {
 
 using namespace tool;
@@ -81,11 +80,11 @@ private:
     /*非平衡状态腿控参数*/
     PID pid_length_l_ = PID({100, 0, 5, 100, 40.0, 0.0, dt});
 
-    PID pid_length_r_ = PID({500, 5, 10, 200, 40.0, 0.0, dt});
+    PID pid_length_r_ = PID({100, 0, 5, 100, 40.0, 0.0, dt});
     
     PID pid_angle_l_  = PID({5, 0, 0,3, 20.0, 0.0, dt});
 
-    PID pid_angle_r_  = PID({20, 1, 3, 100, 20.0, 0.0, dt});
+    PID pid_angle_r_  = PID({5, 0, 0, 3, 20.0, 0.0, dt});
 
     observer::observer* observer_        = observer::observer::GetInstance();
     DesireSet* desire_                   = controller::DesireSet::GetInstance();
@@ -148,24 +147,17 @@ private:
     }
     void leg_controller_balanceless() {
         constexpr double LEG_MOTOR_T_MAX = 6.0f;
-
-        if ((*angle_desire_ - (*x_states_)(4, 0))>PI){
-            reverse =-1;
-        }
-        if ((*angle_desire_ - (*x_states_)(4, 0)) < -PI) {
-            reverse = -1;
-        }
         F_l = pid_length_l_.update(*length_desire_, leg_length_->L);
         F_r          = pid_length_r_.update(*length_desire_, leg_length_->R);
-        T_bll_          = pid_angle_l_.update(*angle_desire_,(*x_states_)(4, 0)+over);
-        T_blr_          = pid_angle_r_.update(*angle_desire_, (*x_states_)(6, 0));
+        T_bll_          = pid_angle_l_.update(*angle_desire_,(*x_states_)(4, 0)+over[0]);
+        T_blr_          = pid_angle_r_.update(*angle_desire_,(*x_states_)(6, 0)+over[1]);
 
         watch_data_c[0] = *length_desire_;
-        watch_data_c[1] = increase_flag_;
+        watch_data_c[1] = over[1];
 
         watch_data_c[2] = (*angle_desire_);
-        watch_data_c[3] = (*x_states_)(4, 0);
-        watch_data_c[4] = (*x_states_)(4, 0) + over;
+        watch_data_c[3] = (*x_states_)(6, 0) + over[1];
+        watch_data_c[4] = (*x_states_)(6, 0);
         /*VMC解算到关节电机扭矩*/
         static double leg_T[2] = {};
         leg_conv(-F_l, -T_bll_, M3508_[leg_LB]->get_angle(), M3508_[leg_LF]->get_angle(), leg_T);
@@ -175,12 +167,15 @@ private:
         leg_conv(F_r, T_blr_, M3508_[leg_RB]->get_angle(), M3508_[leg_RF]->get_angle(), leg_T);
         control_torque_.leg_RB = std::clamp(leg_T[0], -LEG_MOTOR_T_MAX, LEG_MOTOR_T_MAX);
         control_torque_.leg_RF = std::clamp(leg_T[1], -LEG_MOTOR_T_MAX, LEG_MOTOR_T_MAX);
-        if (increase_flag_ == 1) {
-            over +=2*PI;
-        } else if (increase_flag_ == -1) {
-            over -= 2*PI;
+        for (int i=0;i<2;i++){
+            if (observer_->get_increase_flag(i) == 1) {
+                over[i] +=2*PI;
+            } else if (observer_->get_increase_flag(i) == -1) {
+                over[i] -= 2*PI;
+            }
         }
-        increase_flag_ = 0;
+        observer_->set_increase_flag(0,0);
+        observer_->set_increase_flag(1, 0);
     }
     void wheel_model_hat() {
         double wheel_speed_hat[2];

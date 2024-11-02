@@ -11,9 +11,10 @@
 #include <Eigen/Dense>
 #include <cmath>
 #include <limits>
-
-double watch_data[6];
-double increase_flag_ = 0;
+#include <queue>
+// double data[2] ={0,0};
+double watch_data_l[6];
+double watch_data_r[6];
 extern double reverse;
 namespace app::observer {
 struct leg_length {
@@ -57,6 +58,12 @@ public:
             imu_euler_->y(),   // 9 theta_b
             imu_gyro_->y();    // 10 theta_bd
     }
+    void set_increase_flag (int index,int value){
+        increase_flag_[index]=value;
+    }
+    double get_increase_flag(int index){
+        return increase_flag_[index];
+    }
     void Init(module::IMU* IMU, std::array<module::M3508*, 6> M3508, chassis_mode* chassis_mode) {
         IMU_          = IMU;
         M3508_        = M3508;
@@ -68,6 +75,8 @@ public:
     }
     // output variables
     Eigen::Matrix<double, 10, 1> x_states_;
+    double data_angle[2][2]={};
+    double increase_flag_[2] = {0,0};
     leg_length leg_length_;
     support_force support_force_;
     bool status_levitate_;
@@ -112,25 +121,22 @@ private:
         static double last_angle_R  = 0.0;
         static double last_length_L = 0.0;
         static double last_length_R = 0.0;
-        double data[2];
+        double data[2]              = {0, 0};
         /*左腿虚拟角度和长度*/
         leg_pos(M3508_[leg_LF]->get_angle(), M3508_[leg_LB]->get_angle(), data);
-        watch_data[2]=data[0];
-        watch_data[3] = data[1];
 
         leg_length_.L = data[0];                                // ll
         leg_length_.L = length_L_LPF_.update(leg_length_.L);
 
         angle_L_ = -data[1] + imu_euler_->y();                  // 5 theta_ll
-
-        watch_data[4] = angle_L_;
-        watch_data[5] = last_angle_L;
-        if (angle_L_ < -3.13 && last_angle_L > 3.13) {
-            increase_flag_ = 1;
-        } else if (angle_L_ > 3.13 && last_angle_L < -3.13) {
-            increase_flag_ = -1;
+        data_angle[1][0]=data_angle[0][0];
+        data_angle[0][0] = -data[1];
+        //左腿计圈
+        if (data_angle[0][0] < -2 && data_angle[1][0] > 2) {
+            set_increase_flag(0,1);
+        } else if (data_angle[0][0] > 2 && data_angle[1][0] < -2) {
+            set_increase_flag(0, -1);
         }
-
         angle_L_ = angle_L_LPF_.update(angle_L_);
         angle_Ld_ = (angle_L_ - last_angle_L) / dt_;            // 6 theta_lld
         last_angle_L = angle_L_;
@@ -138,7 +144,6 @@ private:
         leg_length_.Ld = (leg_length_.L - last_length_L) / dt_; // lld
         last_length_L  = leg_length_.L;
 
-        watch_data[0] = leg_length_.L;
         /*右腿虚拟腿角度和长度*/
         leg_pos(M3508_[leg_RB]->get_angle(), M3508_[leg_RF]->get_angle(), data);
 
@@ -146,6 +151,19 @@ private:
         leg_length_.R = length_R_LPF_.update(leg_length_.R);
 
         angle_R_ = -data[1] + imu_euler_->y();                  // 7 theta_lr
+        data_angle[1][1] = data_angle[0][1];
+        data_angle[0][1] = -data[1];
+        // 右腿计圈
+        if (data_angle[0][1] < -2 && data_angle[1][1] > 2) {
+            set_increase_flag(1, 1);
+        } else if (data_angle[0][1] > 2 && data_angle[1][1] < -2) {
+            set_increase_flag(1, -1);
+        }
+
+        watch_data_l[0] = data_angle[0][0];
+        watch_data_l[1] = leg_length_.L;
+        watch_data_r[0] = data_angle[0][1];
+        watch_data_r[1] = leg_length_.R;
         angle_R_ = angle_R_LPF_.update(angle_R_);
 
         angle_Rd_    = (angle_R_ - last_angle_R) / dt_;         // 8 theta_lrd
@@ -156,9 +174,7 @@ private:
 
         leg_length_avg_ = (leg_length_.L + leg_length_.R) / 2.0f;
 
-        watch_data[1] = angle_L_;
     }
-
     void wheel_update() {
         velocity_ = (M3508_[wheel_L]->get_velocity() + M3508_[wheel_R]->get_velocity()) * Rw / 2.0f;
         velocity_ = velocity_OLS_.Smooth(dt_, velocity_);
