@@ -79,7 +79,7 @@ public:
     void SetKp(double Kp) { Kp_ = Kp; }
     void SetKi(double Ki) { Ki_ = Ki; }
     void SetKd(double Kd) { Kd_ = Kd; }
-
+    
 private:
     double Kp_            = 0;
     double Ki_            = 0;

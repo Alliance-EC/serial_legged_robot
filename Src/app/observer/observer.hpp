@@ -25,7 +25,7 @@ struct leg_length {
 };
 struct support_force {
     double L;
-    double R;
+    double R;   
 };
 class observer {
 public:
@@ -135,7 +135,7 @@ private:
         if (data_angle[0][0] < -2 && data_angle[1][0] > 2) {
             set_increase_flag(0,1);
         } else if (data_angle[0][0] > 2 && data_angle[1][0] < -2) {
-            set_increase_flag(0, -1);
+            set_increase_flag(0,-1);
         }
         angle_L_ = angle_L_LPF_.update(angle_L_);
         angle_Ld_ = (angle_L_ - last_angle_L) / dt_;            // 6 theta_lld
@@ -162,6 +162,12 @@ private:
 
         watch_data_l[0] = data_angle[0][0];
         watch_data_l[1] = leg_length_.L;
+        watch_data_l[2] = M3508_[wheel_L]->get_velocity();
+        watch_data_r[2] = M3508_[wheel_R]->get_velocity();
+
+        watch_data_l[3] = M3508_[wheel_L]->get_torque();
+        watch_data_r[3] = M3508_[wheel_R]->get_torque();
+
         watch_data_r[0] = data_angle[0][1];
         watch_data_r[1] = leg_length_.R;
         angle_R_ = angle_R_LPF_.update(angle_R_);
@@ -187,6 +193,8 @@ private:
             M3508_[leg_LB]->get_angle(), data);
         auto F_l         = data[0];
         auto T_l         = data[1];
+        watch_data_l[4]  = data[0];
+        watch_data_l[5]  = data[1];
         auto P_l         = F_l * std::cos(angle_L_) + T_l * std::sin(angle_L_) / leg_length_.L;
         support_force_.L = P_l;
         leg_conv_reverse(

@@ -3,7 +3,6 @@
 #include "device/Dji_motor/DJI_motor.hpp"
 #include "tool/pid/pid.hpp"
 #include <numbers>
-double watch_data_3508[4];
 using namespace device;
 namespace module {
 enum class M3508_mode : uint8_t { angle, velocity, torque };
@@ -27,7 +26,7 @@ struct M3508_params {
             .IntegralLimit = 0.0f,
             .Expect_dt     = app::dt};
     }
-};
+};  
 class M3508 : public DjiMotor {
 public:
     explicit M3508(const M3508_params& params)

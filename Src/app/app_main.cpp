@@ -21,7 +21,8 @@ static device::remote_control* RC_instance;
 
 static std::array<module::M3508*, 6> M3508_instance;
 
-static device::DjiMotor_sender* m3508_sender_instance;
+static device::DjiMotor_sender* m3508_sender_instance_1;
+static device::DjiMotor_sender* m3508_sender_instance_2;
 static auto observer_instance   = observer::observer::GetInstance();
 static auto desire_instance     = controller::DesireSet::GetInstance();
 static auto controller_instance = controller::Controller::GetInstance();
@@ -44,13 +45,15 @@ void Init() {
         M3508_instance[i]->SetOfflineCallback(
             std::bind(&controller::DesireSet::CanLost, desire_instance));
     }
-    m3508_sender_instance = new device::DjiMotor_sender(
+    m3508_sender_instance_1 = new device::DjiMotor_sender(
         DjiMotor_params().set_can_instance(&hfdcan1).set_tx_id(toU32(M3508_sendID::ID1)));
 
+    m3508_sender_instance_2 = new device::DjiMotor_sender(
+        DjiMotor_params().set_can_instance(&hfdcan1).set_tx_id(toU32(M3508_sendID::ID2)));
     /*设定电机减速比，初始角度*/
 
-    M3508_instance[wheel_L]->configure(true, DjiMotorType::M3508_15);
-    M3508_instance[wheel_R]->configure(true, DjiMotorType::M3508_15);
+    M3508_instance[wheel_L]->configure(false, DjiMotorType::M3508_15);
+    M3508_instance[wheel_R]->configure(false, DjiMotorType::M3508_15);
 
     M3508_instance[leg_LF]->configure(true, DjiMotorType::M3508_19);
     M3508_instance[leg_LB]->configure(true, DjiMotorType::M3508_19);
@@ -60,7 +63,8 @@ void Init() {
     observer_instance->Init(IMU_instance, M3508_instance, &chassis_mode_);
     desire_instance->Init(&IMU_instance->output_vector, &RC_instance->data, &chassis_mode_);
     controller_instance->Init(IMU_instance, M3508_instance, &chassis_mode_);
-    sender_instance->Init(M3508_instance, m3508_sender_instance, &chassis_mode_);
+    sender_instance->Init(
+        M3508_instance, m3508_sender_instance_1, m3508_sender_instance_2, &chassis_mode_);
 
     __enable_irq();
 }
